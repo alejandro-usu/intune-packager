@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Intune Win32 App Packager</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface2: #334155;
+    --border: #475569;
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --green: #22c55e;
+    --yellow: #eab308;
+    --red: #ef4444;
+    --code-bg: #0d1117;
+    --purple: #a855f7;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* Layout */
+  .page-header { max-width: 1200px; margin: 0 auto; padding: 2rem 1.5rem 0; }
+  h1 { font-size: 1.75rem; font-weight: 700; color: #fff; margin-bottom: 0.25rem; }
+  .subtitle { color: var(--text-muted); margin-bottom: 2rem; font-size: 0.95rem; }
+
+  .top-section { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }
+
+  .two-col {
+    display: none;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1.5rem 2rem;
+    gap: 1.5rem;
+    align-items: flex-start;
+  }
+  .two-col.visible { display: grid; grid-template-columns: 1fr 340px; }
+  .main-col { min-width: 0; }
+
+  /* Icon Sidebar */
+  .icon-sidebar {
+    position: sticky;
+    top: 1.5rem;
+    background: var(--surface);
+    border: 1px solid rgba(168,85,247,0.3);
+    border-radius: 12px;
+    padding: 1.25rem;
+  }
+  .icon-sidebar-header {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: #fff;
+    margin-bottom: 0.15rem;
+  }
+  .icon-sidebar-sub {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+    line-height: 1.4;
+  }
+  .icon-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+  }
+  .icon-cell {
+    aspect-ratio: 1;
+    background: var(--bg);
+    border: 2px solid transparent;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.15s;
+    overflow: hidden;
+    position: relative;
+  }
+  .icon-cell:hover { border-color: var(--purple); transform: scale(1.04); }
+  .icon-cell.selected { border-color: var(--green); }
+  .icon-cell img {
+    width: 70%;
+    height: 70%;
+    object-fit: contain;
+  }
+  .icon-cell.empty {
+    display: none;
+  }
+  .icon-cell .icon-src-tag {
+    position: absolute;
+    bottom: 2px;
+    right: 4px;
+    font-size: 0.55rem;
+    color: var(--surface2);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .icon-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .icon-dl-btn {
+    display: block;
+    text-align: center;
+    padding: 0.55rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+    color: #fff;
+    background: var(--green);
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .icon-dl-btn:hover { opacity: 0.85; }
+  .icon-dl-btn:disabled { opacity: 0.4; cursor: default; }
+  .icon-search-link {
+    display: block;
+    text-align: center;
+    padding: 0.45rem;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    transition: background 0.15s;
+  }
+  .icon-search-link:hover { background: rgba(59,130,246,0.1); }
+  .icon-manual {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+  .icon-manual-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 0.4rem;
+  }
+  .icon-manual input {
+    width: 100%;
+    font-size: 0.82rem;
+    padding: 0.45rem 0.65rem;
+    margin-bottom: 0.4rem;
+  }
+  .icon-manual-btn {
+    width: 100%;
+    background: var(--purple);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 0.45rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .icon-manual-btn:hover { opacity: 0.85; }
+
+  .icon-tip {
+    font-size: 0.78rem;
+    color: var(--surface2);
+    margin-top: 0.75rem;
+    line-height: 1.4;
+  }
+  .icon-loading {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 2rem 0;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+  }
+  .icon-loading .spinner {
+    display: inline-block;
+    width: 1.2rem;
+    height: 1.2rem;
+    border: 2px solid var(--surface2);
+    border-top-color: var(--purple);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    vertical-align: middle;
+    margin-right: 0.4rem;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Form */
+  .form-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.75rem;
+    margin-bottom: 1.5rem;
+  }
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+  }
+  .form-group { display: flex; flex-direction: column; gap: 0.35rem; }
+  .form-group.full { grid-column: 1 / -1; }
+  label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  input, select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.6rem 0.85rem;
+    color: var(--text);
+    font-size: 0.95rem;
+    font-family: inherit;
+    transition: border-color 0.15s;
+  }
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+  }
+  input::placeholder { color: var(--surface2); }
+  .hint { font-size: 0.8rem; color: var(--text-muted); }
+  .exe-only { display: none; }
+  .exe-only.visible { display: flex; }
+
+  .btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 0.75rem 2rem;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+    margin-top: 0.5rem;
+  }
+  .btn:hover { background: var(--accent-hover); }
+
+  .step-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+    margin-bottom: 1rem;
+  }
+
+  /* Store Check Module */
+  .store-module {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+    display: none;
+  }
+  .store-module.visible { display: block; }
+  .store-module-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .store-module-header strong { color: #fff; font-size: 0.95rem; }
+  .store-module .spinner {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid var(--surface2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    vertical-align: middle;
+    margin-right: 0.3rem;
+  }
+
+  /* Store result states */
+  .store-searching { color: var(--text-muted); font-size: 0.9rem; }
+  .store-found {
+    background: rgba(34,197,94,0.08);
+    border: 1px solid rgba(34,197,94,0.25);
+    border-radius: 8px;
+    padding: 0.85rem 1rem;
+  }
+  .store-found strong { color: var(--green); }
+  .store-found p { color: var(--text-muted); font-size: 0.88rem; margin-top: 0.35rem; }
+  .store-found-list {
+    list-style: none;
+    padding: 0;
+    margin: 0.6rem 0;
+  }
+  .store-found-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.65rem;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.03);
+    margin-bottom: 0.35rem;
+  }
+  .store-found-item img {
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    object-fit: contain;
+    flex-shrink: 0;
+  }
+  .store-found-item-info { flex: 1; min-width: 0; }
+  .store-found-item-name {
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .store-found-item-pub {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+  .store-open-btn {
+    display: inline-block;
+    margin-top: 0.6rem;
+    background: var(--green);
+    color: #fff;
+    text-decoration: none;
+    padding: 0.5rem 1.1rem;
+    border-radius: 6px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    transition: opacity 0.15s;
+  }
+  .store-open-btn:hover { opacity: 0.85; }
+
+  .store-not-found {
+    background: rgba(255,255,255,0.03);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+  .store-not-found strong { color: var(--text); }
+
+  .store-manual-link {
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .store-manual-link:hover { text-decoration: underline; }
+
+  /* Output Sections */
+  #output { display: none; }
+  #output.visible { display: block; }
+
+  .section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+  }
+  .section-header:hover { background: rgba(255,255,255,0.02); }
+  .section-num {
+    background: var(--accent);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.8rem;
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .section-title { font-weight: 600; font-size: 1.05rem; }
+  .section-body { padding: 1.25rem; }
+
+  .code-block {
+    position: relative;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin: 0.75rem 0;
+    overflow: hidden;
+  }
+  .code-block pre {
+    padding: 1rem;
+    overflow-x: auto;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .copy-btn {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background: var(--surface2);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.3rem 0.65rem;
+    font-size: 0.78rem;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .copy-btn:hover { background: var(--border); color: #fff; }
+  .copy-btn.copied { background: var(--green); color: #fff; border-color: var(--green); }
+
+  .cmd-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-top: 1rem;
+    margin-bottom: 0.15rem;
+  }
+  .cmd-label:first-child { margin-top: 0; }
+
+  .warning {
+    background: rgba(234,179,8,0.08);
+    border: 1px solid rgba(234,179,8,0.25);
+    border-radius: 8px;
+    padding: 0.85rem 1rem;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+  .warning strong { color: var(--yellow); }
+  .warning-red { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.25); }
+  .warning-red strong { color: var(--red); }
+
+  .info-note { color: var(--text-muted); font-size: 0.9rem; margin-top: 0.5rem; }
+
+  .table-wrap { overflow-x: auto; margin: 0.75rem 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th {
+    text-align: left;
+    padding: 0.6rem 0.85rem;
+    background: var(--bg);
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  td { padding: 0.55rem 0.85rem; border-top: 1px solid var(--border); }
+  code {
+    background: var(--code-bg);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.85em;
+  }
+  .det-table { margin-top: 0.5rem; }
+  .det-table td:first-child { font-weight: 600; color: var(--text-muted); white-space: nowrap; width: 180px; }
+
+  .script-intro { margin-bottom: 0.75rem; font-size: 0.92rem; }
+
+  @media (max-width: 900px) {
+    .two-col.visible { grid-template-columns: 1fr; }
+    .icon-sidebar { position: static; order: -1; }
+    .icon-grid { grid-template-columns: repeat(3, 1fr); }
+    .form-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 500px) {
+    .page-header, .top-section, .two-col { padding-left: 1rem; padding-right: 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>Intune Win32 App Packager</h1>
+  <p class="subtitle">Generate complete deployment parameters for Microsoft Intune Win32 app packaging.</p>
+</div>
+
+<div class="top-section">
+  <!-- Step 1: App Name -->
+  <div class="form-card" id="step1Card">
+    <div class="step-label">Step 1 &mdash; Check the Microsoft Store</div>
+    <div class="form-grid">
+      <div class="form-group full">
+        <label for="appName">Application Name</label>
+        <input type="text" id="appName" placeholder="e.g., Google Chrome" onkeydown="if(event.key==='Enter')checkStore()">
+      </div>
+      <div class="form-group full" style="align-items:flex-start;">
+        <button class="btn" onclick="checkStore()">Check Store &amp; Continue</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Two-column layout: main + icon sidebar -->
+<div class="two-col" id="twoCol">
+  <div class="main-col">
+
+    <!-- Store Check Module -->
+    <div class="store-module" id="storeModule">
+      <div class="store-module-header">
+        <strong>Microsoft Store Check</strong>
+      </div>
+      <div id="storeModuleBody"></div>
+    </div>
+
+    <!-- Step 2: Win32 Details -->
+    <div class="form-card" id="step2Card">
+      <div class="step-label">Step 2 &mdash; Win32 Packaging Details</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="appVersion">Application Version</label>
+          <input type="text" id="appVersion" placeholder="e.g., 120.0.6099.130">
+        </div>
+        <div class="form-group">
+          <label for="installerType">Installer Type</label>
+          <select id="installerType">
+            <option value="MSI">MSI</option>
+            <option value="EXE">EXE</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="installerFilename">Installer Filename</label>
+          <input type="text" id="installerFilename" placeholder="e.g., setup.exe or app-v2.msi">
+        </div>
+        <div class="form-group">
+          <label for="architecture">Architecture</label>
+          <select id="architecture">
+            <option value="x64">64-bit (x64)</option>
+            <option value="x86">32-bit (x86)</option>
+            <option value="both">Both (x86 + x64)</option>
+          </select>
+        </div>
+        <div class="form-group exe-only" id="silentSwitchGroup">
+          <label for="silentSwitches">Silent Install Switches</label>
+          <input type="text" id="silentSwitches" placeholder="e.g., /S, /quiet — leave blank for suggestions">
+          <span class="hint">Leave blank to see common switches by installer framework</span>
+        </div>
+        <div class="form-group full" style="align-items:flex-start;">
+          <button class="btn" onclick="generate()">Generate Deployment Parameters</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Output Sections -->
+    <div id="output">
+      <div class="section">
+        <div class="section-header" onclick="toggleSection(this)">
+          <span class="section-num">1</span>
+          <span class="section-title">Win32 Packaging Prep</span>
+        </div>
+        <div class="section-body" id="section1"></div>
+      </div>
+      <div class="section">
+        <div class="section-header" onclick="toggleSection(this)">
+          <span class="section-num">2</span>
+          <span class="section-title">Intune Program Commands</span>
+        </div>
+        <div class="section-body" id="section2"></div>
+      </div>
+      <div class="section">
+        <div class="section-header" onclick="toggleSection(this)">
+          <span class="section-num">3</span>
+          <span class="section-title">Detection Rules</span>
+        </div>
+        <div class="section-body" id="section3"></div>
+      </div>
+      <div class="section">
+        <div class="section-header" onclick="toggleSection(this)">
+          <span class="section-num">4</span>
+          <span class="section-title">Registry Discovery Script</span>
+        </div>
+        <div class="section-body" id="section4"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Icon Sidebar -->
+  <div class="icon-sidebar" id="iconSidebar">
+    <div class="icon-sidebar-header">App Icon Finder</div>
+    <div class="icon-sidebar-sub">Select an icon for Company Portal. Right-click and save, or use the download button.</div>
+    <div class="icon-grid" id="iconGrid">
+      <div class="icon-loading" id="iconLoading"><span class="spinner"></span> Searching for icons...</div>
+    </div>
+    <div class="icon-manual">
+      <div class="icon-manual-label">Don't see the right icon?</div>
+      <input type="text" id="iconManualInput" placeholder="Paste vendor website or image URL" onkeydown="if(event.key==='Enter')manualIconLookup()">
+      <button class="icon-manual-btn" onclick="manualIconLookup()">Fetch</button>
+    </div>
+    <div class="icon-actions">
+      <button class="icon-dl-btn" id="iconDownloadBtn" disabled onclick="downloadSelectedIcon()">Select an icon above</button>
+      <a id="iconGoogleLink" href="#" target="_blank" class="icon-search-link">Search Google Images for more</a>
+    </div>
+    <p class="icon-tip">Intune accepts PNG, JPG, or ICO. PNG with a transparent background at 512x512px looks best in Company Portal. Upload under <strong>App Information &gt; Logo</strong>.</p>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+$('installerType').addEventListener('change', function() {
+  document.querySelectorAll('.exe-only').forEach(el => {
+    el.classList.toggle('visible', this.value === 'EXE');
+  });
+});
+
+function toggleSection(header) {
+  const body = header.nextElementSibling;
+  body.style.display = body.style.display === 'none' ? 'block' : 'none';
+}
+
+function esc(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function codeBlock(text, id) {
+  return `<div class="code-block"><button class="copy-btn" onclick="copyCode('${id}', this)">Copy</button><pre id="${id}">${esc(text)}</pre></div>`;
+}
+
+function copyCode(id, btn) {
+  const text = $(id).textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+  });
+}
+
+/* ---- Icon Finder ---- */
+let selectedIconUrl = null;
+
+function buildIconSources(appName) {
+  // Normalize: "Google Chrome" → "google-chrome", "googlechrome", "google.com", etc.
+  const slug = appName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  const slugNoSep = appName.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const firstWord = appName.split(/\s+/)[0].toLowerCase();
+
+  // Common domain guesses
+  const domains = [
+    slug + '.com',
+    firstWord + '.com',
+    slug + '.io',
+    firstWord + '.io',
+    slug + '.org',
+  ];
+  // De-duplicate
+  const uniqueDomains = [...new Set(domains)];
+
+  const sources = [];
+
+  // Standard high-res icon paths that most websites publish
+  // (generated by favicon tools like realfavicongenerator.net, built into many CMS platforms)
+  const wellKnownPaths = [
+    '/android-chrome-512x512.png',
+    '/android-chrome-192x192.png',
+    '/apple-touch-icon.png',
+    '/apple-touch-icon-precomposed.png',
+    '/mstile-310x310.png',
+  ];
+
+  // Probe well-known paths on guessed domains (highest priority — these are real site assets)
+  uniqueDomains.slice(0, 3).forEach(domain => {
+    wellKnownPaths.forEach(path => {
+      sources.push({ url: `https://${domain}${path}`, label: 'site' });
+    });
+  });
+
+  // Clearbit Logo API — high-quality company logos
+  uniqueDomains.forEach(domain => {
+    sources.push({ url: `https://logo.clearbit.com/${domain}?size=512`, label: 'clearbit' });
+  });
+
+  // SimpleIcons CDN — brand SVGs (works for well-known brands)
+  sources.push({ url: `https://cdn.simpleicons.org/${slug}`, label: 'simple' });
+  if (slug !== slugNoSep) {
+    sources.push({ url: `https://cdn.simpleicons.org/${slugNoSep}`, label: 'simple' });
+  }
+  sources.push({ url: `https://cdn.simpleicons.org/${firstWord}`, label: 'simple' });
+
+  // Icons8 direct image URLs
+  sources.push({ url: `https://img.icons8.com/color/512/${slug}.png`, label: 'icons8' });
+  if (slug !== firstWord) {
+    sources.push({ url: `https://img.icons8.com/color/512/${firstWord}.png`, label: 'icons8' });
+  }
+
+  // Google high-res favicon
+  uniqueDomains.slice(0, 2).forEach(domain => {
+    sources.push({ url: `https://www.google.com/s2/favicons?domain=${domain}&sz=256`, label: 'favicon' });
+  });
+
+  return sources;
+}
+
+function loadIcons(appName) {
+  const grid = $('iconGrid');
+  grid.innerHTML = '<div class="icon-loading" id="iconLoading"><span class="spinner"></span> Searching for icons...</div>';
+  selectedIconUrl = null;
+  $('iconDownloadBtn').disabled = true;
+  $('iconDownloadBtn').textContent = 'Select an icon above';
+
+  const sources = buildIconSources(appName);
+  let loaded = 0;
+  const maxIcons = 9;
+  let pending = sources.length;
+
+  function checkDone() {
+    if (pending <= 0 || loaded >= maxIcons) {
+      const loader = $('iconLoading');
+      if (loader) loader.remove();
+      if (loaded === 0) {
+        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:1.5rem 0;color:var(--text-muted);font-size:0.85rem;">No icons found automatically.<br>Use the Google Images link below.</div>';
+      }
+    }
+  }
+
+  // Fire all requests in parallel — no crossOrigin so no CORS preflight
+  sources.forEach((src, idx) => {
+    if (loaded >= maxIcons) return;
+
+    const img = new Image();
+    // Do NOT set crossOrigin — most icon services don't send CORS headers
+    // and the browser will block the load entirely if we request it
+
+    let settled = false;
+    function settle() {
+      if (settled) return;
+      settled = true;
+      pending--;
+      checkDone();
+    }
+
+    img.onload = function() {
+      if (loaded >= maxIcons) { settle(); return; }
+      // Skip tiny images (1x1 tracking pixels, broken placeholders)
+      if (img.naturalWidth < 32 || img.naturalHeight < 32) { settle(); return; }
+
+      loaded++;
+      const loader = $('iconLoading');
+      if (loader) loader.remove();
+
+      const cell = document.createElement('div');
+      cell.className = 'icon-cell';
+      cell.setAttribute('data-idx', idx);
+      cell.innerHTML = `<img src="${src.url}" alt="icon"><span class="icon-src-tag">${src.label}</span>`;
+      cell.addEventListener('click', () => selectIcon(cell, src.url));
+
+      // Insert in source-order so higher-priority sources appear first
+      const cells = grid.querySelectorAll('.icon-cell');
+      let inserted = false;
+      for (const existing of cells) {
+        if (parseInt(existing.getAttribute('data-idx')) > idx) {
+          grid.insertBefore(cell, existing);
+          inserted = true;
+          break;
+        }
+      }
+      if (!inserted) grid.appendChild(cell);
+
+      settle();
+    };
+
+    img.onerror = function() { settle(); };
+
+    // Timeout: skip slow sources after 4s
+    setTimeout(() => {
+      if (!img.complete) {
+        img.src = '';
+        settle();
+      }
+    }, 4000);
+
+    img.src = src.url;
+  });
+}
+
+function selectIcon(cell, url) {
+  document.querySelectorAll('.icon-cell').forEach(c => c.classList.remove('selected'));
+  cell.classList.add('selected');
+  selectedIconUrl = url;
+  $('iconDownloadBtn').disabled = false;
+  $('iconDownloadBtn').textContent = 'Open icon in new tab to save';
+}
+
+function downloadSelectedIcon() {
+  if (!selectedIconUrl) return;
+  window.open(selectedIconUrl, '_blank');
+}
+
+function manualIconLookup() {
+  let input = $('iconManualInput').value.trim();
+  if (!input) return;
+
+  const grid = $('iconGrid');
+
+  // Detect if it's a direct image URL (has image extension or is clearly a full URL path)
+  const isImageUrl = /\.(png|jpg|jpeg|gif|svg|ico|webp)(\?.*)?$/i.test(input) ||
+                     (input.startsWith('http') && /\/(logo|icon|image|img|brand)/i.test(input));
+
+  if (isImageUrl) {
+    // Direct image URL — add it straight to the grid
+    if (!input.startsWith('http')) input = 'https://' + input;
+    addManualIcon(input, 'direct');
+    return;
+  }
+
+  // Treat as a website domain — clean it up
+  let domain = input.replace(/^https?:\/\//, '').replace(/\/.*$/, '').toLowerCase();
+  if (!domain.includes('.')) domain += '.com';
+
+  // Standard high-res icon paths found on most websites
+  const wellKnownPaths = [
+    '/android-chrome-512x512.png',
+    '/android-chrome-192x192.png',
+    '/apple-touch-icon.png',
+    '/apple-touch-icon-precomposed.png',
+    '/mstile-310x310.png',
+  ];
+
+  // Build sources: well-known paths first (highest quality), then logo APIs
+  const sources = [];
+  wellKnownPaths.forEach(path => {
+    sources.push({ url: `https://${domain}${path}`, label: 'site' });
+  });
+  sources.push({ url: `https://logo.clearbit.com/${domain}?size=512`, label: 'clearbit' });
+  sources.push({ url: `https://www.google.com/s2/favicons?domain=${domain}&sz=256`, label: 'favicon' });
+
+  // Also try the root domain if input was a subdomain (e.g., education.minecraft.net → minecraft.net)
+  const parts = domain.split('.');
+  if (parts.length > 2) {
+    const root = parts.slice(-2).join('.');
+    wellKnownPaths.forEach(path => {
+      sources.push({ url: `https://${root}${path}`, label: 'site' });
+    });
+    sources.push({ url: `https://logo.clearbit.com/${root}?size=512`, label: 'clearbit' });
+    sources.push({ url: `https://www.google.com/s2/favicons?domain=${root}&sz=256`, label: 'favicon' });
+  }
+
+  sources.forEach(src => addManualIcon(src.url, src.label));
+}
+
+function addManualIcon(url, label) {
+  const grid = $('iconGrid');
+
+  // Remove the "no icons found" message if present
+  const noResults = grid.querySelector('div[style*="grid-column"]');
+  if (noResults && noResults.textContent.includes('No icons')) noResults.remove();
+
+  const img = new Image();
+  img.onload = function() {
+    if (img.naturalWidth < 16 || img.naturalHeight < 16) return;
+
+    const cell = document.createElement('div');
+    cell.className = 'icon-cell';
+    cell.setAttribute('data-idx', '-1');
+    cell.innerHTML = `<img src="${url}" alt="icon"><span class="icon-src-tag">${label}</span>`;
+    cell.addEventListener('click', () => selectIcon(cell, url));
+
+    // Prepend manual results so they appear first
+    grid.insertBefore(cell, grid.firstChild);
+  };
+  img.onerror = function() { /* silently skip */ };
+  img.src = url;
+}
+
+/* ---- Step 1: Store Check ---- */
+function checkStore() {
+  const appName = $('appName').value.trim();
+  if (!appName) {
+    alert('Please enter an Application Name.');
+    return;
+  }
+
+  const storeUrl = 'https://apps.microsoft.com/search?query=' + encodeURIComponent(appName);
+
+  // Show module in loading state
+  const module = $('storeModule');
+  const body = $('storeModuleBody');
+  module.classList.add('visible');
+  body.innerHTML = '<div class="store-searching"><span class="spinner"></span> Searching the Microsoft Store for "' + esc(appName) + '"...</div>';
+
+  // Set up Google Images fallback link
+  const q = encodeURIComponent(appName + ' logo');
+  $('iconGoogleLink').href = 'https://www.google.com/search?q=' + q + '+png+icon&udm=2&tbs=ic:trans,ift:png';
+
+  // Show two-column layout and load icons
+  $('twoCol').classList.add('visible');
+  loadIcons(appName);
+
+  // Try multiple Microsoft Store API endpoints
+  searchMicrosoftStore(appName, storeUrl).then(result => {
+    renderStoreResult(result, appName, storeUrl);
+  });
+
+  module.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ---- CONFIGURATION ----
+// Replace this with your Cloudflare Worker URL after deployment
+const STORE_PROXY_URL = 'https://YOUR-WORKER-NAME.YOUR-SUBDOMAIN.workers.dev';
+
+async function searchMicrosoftStore(appName) {
+  try {
+    const resp = await fetch(`${STORE_PROXY_URL}?q=${encodeURIComponent(appName)}`, {
+      signal: AbortSignal.timeout(8000),
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!resp.ok) return { status: 'unavailable' };
+    const data = await resp.json();
+
+    if (data.status === 'found' && data.items && data.items.length > 0) {
+      return { status: 'found', items: data.items.slice(0, 5) };
+    } else if (data.status === 'not-found') {
+      return { status: 'not-found' };
+    }
+    return { status: 'unavailable' };
+  } catch (e) {
+    return { status: 'unavailable' };
+  }
+}
+
+function renderStoreResult(result, appName, storeUrl) {
+  const body = $('storeModuleBody');
+
+  if (result.status === 'found') {
+    let listHtml = result.items.map(item => {
+      return `<li class="store-found-item">
+        <div class="store-found-item-info">
+          <div class="store-found-item-name">${esc(item.name)}</div>
+          ${item.publisher ? `<div class="store-found-item-pub">${esc(item.publisher)}</div>` : ''}
+          ${item.id ? `<div class="store-found-item-pub" style="font-family:monospace;font-size:0.72rem;">${esc(item.id)}</div>` : ''}
+        </div>
+      </li>`;
+    }).join('');
+
+    body.innerHTML = `
+      <div class="store-found">
+        <strong>Possible matches found in the Microsoft Store</strong>
+        <p>If your app is listed below, you can deploy it as a Store app in Intune &mdash; no packaging, no detection rules, and automatic updates.</p>
+        <ul class="store-found-list">${listHtml}</ul>
+        <a href="${storeUrl}" target="_blank" class="store-open-btn">View in Microsoft Store &rarr;</a>
+        <p style="font-size:0.82rem;color:var(--text-muted);margin-top:0.6rem;">Not what you need? Continue with Win32 packaging below.</p>
+      </div>
+    `;
+  } else if (result.status === 'not-found') {
+    body.innerHTML = `
+      <div class="store-not-found">
+        <strong>No matches found</strong> for "${esc(appName)}" in the Microsoft Store.<br>
+        Continue with Win32 packaging below.
+        <div style="margin-top:0.5rem;"><a href="${storeUrl}" target="_blank" class="store-manual-link">Double-check on Microsoft Store &rarr;</a></div>
+      </div>
+    `;
+  } else {
+    // API unavailable (CORS blocked) — offer manual check
+    body.innerHTML = `
+      <div class="store-not-found">
+        <strong>Couldn't search the Store automatically</strong><br>
+        Check if "${esc(appName)}" is available as a Store app before packaging it as Win32 &mdash; Store apps are easier to deploy.
+        <div style="margin-top:0.5rem;"><a href="${storeUrl}" target="_blank" class="store-manual-link">Check Microsoft Store manually &rarr;</a></div>
+      </div>
+    `;
+  }
+}
+
+/* ---- Step 2: Generate ---- */
+function generate() {
+  const appName = $('appName').value.trim();
+  const appVersion = $('appVersion').value.trim();
+  const type = $('installerType').value;
+  const filename = $('installerFilename').value.trim();
+  const arch = $('architecture').value;
+  const switches = $('silentSwitches').value.trim();
+
+  if (!appName || !appVersion || !filename) {
+    alert('Please fill in Application Name, Version, and Installer Filename.');
+    return;
+  }
+
+  const isMSI = type === 'MSI';
+
+  // Section 1: Packaging Prep
+  $('section1').innerHTML = `
+    <ol style="padding-left:1.25rem; display:flex; flex-direction:column; gap:0.5rem;">
+      <li>Create a <strong>Source</strong> folder and place <strong>only</strong> <code>${esc(filename)}</code> inside it.</li>
+      <li>Download the <a href="https://github.com/microsoft/Microsoft-Win32-Content-Prep-Tool" style="color:var(--accent)" target="_blank">Win32 Content Prep Tool</a> if you haven't already.</li>
+      <li>Run the following command to generate your <code>.intunewin</code> file:</li>
+    </ol>
+    ${codeBlock(`IntuneWinAppUtil.exe -c <SourceFolder> -s ${filename} -o <OutputFolder>`, 'prep-cmd')}
+    <p class="info-note">Replace <code>&lt;SourceFolder&gt;</code> and <code>&lt;OutputFolder&gt;</code> with your actual paths.</p>
+  `;
+
+  // Section 2: Program Commands
+  let sec2 = '';
+  if (isMSI) {
+    const installCmd = `msiexec /i "${filename}" /qn /norestart`;
+    const uninstallCmd = `msiexec /x "{PRODUCT-CODE-GUID}" /qn /norestart`;
+    sec2 = `
+      <div class="cmd-label">Install Command</div>
+      ${codeBlock(installCmd, 'install-cmd')}
+      <div class="cmd-label">Uninstall Command</div>
+      ${codeBlock(uninstallCmd, 'uninstall-cmd')}
+      <div class="warning">
+        <strong>Note:</strong> The Win32 Content Prep Tool will automatically extract the exact Product Code GUID when you upload the <code>.intunewin</code> file. Update the uninstall command in the Intune portal with the real GUID.
+      </div>
+    `;
+  } else {
+    let installCmd;
+    if (switches) {
+      installCmd = `"${filename}" ${switches}`;
+    } else {
+      installCmd = `"${filename}" <SILENT_SWITCHES>`;
+    }
+    const uninstallTemplate = `"%ProgramFiles%\\${appName}\\uninstall.exe" /S`;
+    sec2 = `
+      <div class="cmd-label">Install Command</div>
+      ${codeBlock(installCmd, 'install-cmd')}
+      ${!switches ? `
+      <div class="warning">
+        <strong>No silent switches provided.</strong> Identify your installer framework and use the appropriate switches:
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Framework</th><th>How to Identify</th><th>Silent Switches</th></tr></thead>
+          <tbody>
+            <tr><td>NSIS</td><td><code>/S</code> appears in help output</td><td><code>/S</code></td></tr>
+            <tr><td>Inno Setup</td><td>File properties mention "Inno"</td><td><code>/VERYSILENT /SUPPRESSMSGBOXES /NORESTART</code></td></tr>
+            <tr><td>InstallShield</td><td><code>setup.exe</code> drops an <code>.msi</code> in temp</td><td><code>/s /v"/qn /norestart"</code></td></tr>
+            <tr><td>WiX Burn</td><td><code>.exe</code> wrapping an <code>.msi</code></td><td><code>/quiet /norestart</code></td></tr>
+            <tr><td>InstallAnywhere</td><td>Splash screen says "InstallAnywhere"</td><td><code>-i silent</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      ` : ''}
+      <div class="cmd-label">Uninstall Command</div>
+      ${codeBlock(uninstallTemplate, 'uninstall-cmd')}
+      <div class="warning">
+        <strong>Important:</strong> The uninstall command above is a template. Run the <strong>Registry Discovery Script</strong> (Section 4) on a test machine to get the exact <code>UninstallString</code> from the registry.
+      </div>
+    `;
+  }
+  $('section2').innerHTML = sec2;
+
+  // Section 3: Detection Rules
+  let sec3 = '';
+  if (isMSI) {
+    sec3 = `
+      <p>Intune natively handles MSI detection. When configuring the detection rule in the Intune portal:</p>
+      <div class="table-wrap" style="margin-top:0.75rem;">
+        <table class="det-table">
+          <tr><td>Rule Type</td><td><strong>MSI</strong></td></tr>
+          <tr><td>MSI Product Code</td><td>Auto-populated from <code>.intunewin</code> upload</td></tr>
+          <tr><td>Version Check</td><td>Yes &mdash; set to the version you are deploying</td></tr>
+        </table>
+      </div>
+      <div class="warning warning-red" style="margin-top:1rem;">
+        <strong>Warning &mdash; The False Positive Update Trap:</strong> Always use <strong>"Greater than or equal to"</strong> version checking. If you only use "MSI product code exists", Intune will see the older version as "installed" and skip deploying the update.
+      </div>
+    `;
+  } else {
+    const regKey = arch === 'x86'
+      ? `HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\<ProductCode>`
+      : `HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\<ProductCode>`;
+    sec3 = `
+      <p>Configure a <strong>Registry-based</strong> detection rule with the following parameters:</p>
+      <div class="table-wrap" style="margin-top:0.75rem;">
+        <table class="det-table">
+          <tr><td>Rule Type</td><td><strong>Registry</strong></td></tr>
+          <tr><td>Key Path</td><td><code>${esc(regKey)}</code></td></tr>
+          <tr><td>Value Name</td><td><code>DisplayVersion</code></td></tr>
+          <tr><td>Detection Method</td><td>Version comparison</td></tr>
+          <tr><td>Operator</td><td><strong>Greater than or equal to</strong></td></tr>
+          <tr><td>Value</td><td><code>${esc(appVersion)}</code></td></tr>
+        </table>
+      </div>
+      <p class="info-note" style="margin-top:0.75rem;">Replace <code>&lt;ProductCode&gt;</code> with the exact key from the Registry Discovery Script output (Section 4).${arch === 'x86' ? ' Since you selected 32-bit, the WOW6432Node path is shown.' : ''}</p>
+      <div class="warning warning-red" style="margin-top:1rem;">
+        <strong>Warning &mdash; The False Positive Update Trap:</strong> Always use <strong>"Greater than or equal to"</strong> version checking. If you only use "Key exists", Intune will see the older version as "installed" and <em>skip</em> deploying the update to machines that already have an older version.
+      </div>
+    `;
+  }
+  $('section3').innerHTML = sec3;
+
+  // Section 4: PowerShell Script
+  const psScript = `param(
+    [Parameter(Mandatory)]
+    [string]$ApplicationName
+)
+
+$SearchPaths = @(
+    "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*",
+    "HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*",
+    "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*"
+)
+
+$Results = Get-ItemProperty -Path $SearchPaths -ErrorAction SilentlyContinue |
+    Where-Object { $_.DisplayName -like "*$ApplicationName*" }
+
+if ($Results) {
+    Write-Output "=============================="
+    Write-Output "Discovery Results for '$ApplicationName'"
+    Write-Output "=============================="
+    $Results | ForEach-Object {
+        Write-Output ""
+        Write-Output "Display Name     : $($_.DisplayName)"
+        Write-Output "Display Version  : $($_.DisplayVersion)"
+        Write-Output "Product Code     : $($_.PSChildName)"
+        Write-Output "Registry Path    : $($_.PSPath -replace 'Microsoft.PowerShell.Core\\\\Registry::', '')"
+        Write-Output "Uninstall String : $($_.UninstallString)"
+        Write-Output "Install Location : $($_.InstallLocation)"
+        Write-Output "------------------------------"
+    }
+} else {
+    Write-Output "No application found matching: $ApplicationName"
+    Write-Output ""
+    Write-Output "Tips:"
+    Write-Output "  - Make sure the application is installed on this machine"
+    Write-Output "  - Try a shorter or partial name (e.g., 'Chrome' instead of 'Google Chrome Enterprise')"
+}`;
+
+  $('section4').innerHTML = `
+    <p class="script-intro">Run this script on a <strong>test machine where ${esc(appName)} is already installed</strong>. It searches all registry uninstall hives (native, WOW6432Node, and current user) using a partial name match, and returns the exact registry path, version, and uninstall string you need for Intune.</p>
+    ${codeBlock(psScript, 'ps-script')}
+    <div class="cmd-label" style="margin-top:1rem;">Usage</div>
+    ${codeBlock(`.\\Detect-IntuneApp.ps1 -ApplicationName "${appName}"`, 'ps-usage')}
+    <p class="info-note">Save the script as <code>Detect-IntuneApp.ps1</code> and run it in an elevated PowerShell session. Use the output to fill in your detection rule Key Path and uninstall command.</p>
+  `;
+
+  // Show output
+  $('output').classList.add('visible');
+  $('output').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+</script>
+</body>
+</html>
